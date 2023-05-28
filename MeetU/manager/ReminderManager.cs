@@ -4,6 +4,8 @@ namespace MeetU.manager
 {
     internal class ReminderManager
     {
+        public Action<string, ConsoleColor> OnReminderLogging;
+
         private readonly MeetingManager meetingManager = MeetingManager.GetInstance();
 
         private static ReminderManager? instance;
@@ -15,23 +17,27 @@ namespace MeetU.manager
                 instance = new ReminderManager();
             return instance;
         }
+
+        /// <summary>
+        /// Запуск бесконечного цикла проверки уведомлений
+        /// </summary>
         public void Start()
         {
             while(true)
             {
-                List<Meeting> meetings = meetingManager.ReadMeetingsWithDate(DateTime.Now.Date);
+                List<Meeting>? meetings = meetingManager.ReadMeetingsWithDate(DateTime.Now.Date);
+                if (meetings == null)
+                    continue;
                 foreach (Meeting meeting in meetings)
                 {
                     TimeSpan timeToMeeting = meeting.StartTime - DateTime.Now;
                     if(!notifiedMeetings.Contains(meeting) && timeToMeeting <= meeting.ReminderTime)
                     {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"Уведомление: Встреча \"{meeting.Title}\" скоро начнётся!");
+                        OnReminderLogging?.Invoke($"Уведомление: Встреча \"{meeting.Title}\" скоро начнётся!", ConsoleColor.Green);
                         notifiedMeetings.Add(meeting);
-                        Console.ResetColor();
                     }
                 }
-                Thread.Sleep(60000);
+                Thread.Sleep(30000);
             }
         }
     }

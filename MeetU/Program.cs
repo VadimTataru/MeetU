@@ -4,11 +4,11 @@ using MeetU.util;
 using System.Globalization;
 
 var meetingManager = MeetingManager.GetInstance();
+meetingManager.OnLogging += OnLogging;
 var reminder = ReminderManager.GetInstance();
+reminder.OnReminderLogging += OnReminderLogging;
 Thread reminderThread = new Thread(new ThreadStart(reminder.Start));
 reminderThread.IsBackground = true;
-var printer = new Printer();
-
 reminderThread.Start();
 
 while(true)
@@ -37,79 +37,47 @@ while(true)
                 Console.WriteLine("Введите дату в формате 'dd.MM.yyyy' :");
                 if(!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime date))
                 {
-                    printer.PrintMessage("Ввод не корректен!");
+                    Console.WriteLine("Ввод не корректен!");
+                    WaitForUserRead();
                     break;
                 }
 
-                List<Meeting> meetingList = meetingManager.ReadMeetingsWithDate(date);
-                if(meetingList.Count == 0)
+                try
                 {
-                    printer.PrintMessage("На выбранную дату встреч пока не запланировано");
-
-                } else
+                    List<Meeting>? meetingList = meetingManager.ReadMeetingsWithDate(date);
+                    if (meetingList == null)
+                    {
+                        throw new Exception("Список встреч на выбранную дату пуст!");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Расписание встреч на {date.ToShortDateString()}");
+                        foreach (Meeting meeting in meetingList)
+                            Console.WriteLine(meeting.ToString());
+                    }
+                } catch(Exception ex)
                 {
-                    Console.WriteLine($"Расписание встреч на {date.ToShortDateString()}");
-                    foreach (Meeting meeting in meetingList)
-                        Console.WriteLine(meeting.ToString());
-                    printer.PrintMessage(null);
+                    Console.WriteLine($"Ошибка: {ex.Message}");
                 }
 
+                WaitForUserRead();
                 break;
             }
 
         case Command.Add:
-            {
-                Console.WriteLine("Введите дату встречи в формате 'dd.mm.yyyy' :");
-                if (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime date))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Console.WriteLine("Введите время начала встречи в формате 'HH:mm' :");
-                if (!TimeSpan.TryParseExact(Console.ReadLine(), @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out TimeSpan startTime))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Console.WriteLine("Введите дату и время конца встречи в формате 'HH:mm' :");
-                if (!TimeSpan.TryParseExact(Console.ReadLine(), @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out TimeSpan endTime))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-                var start = date.Add(startTime);
-                var end = date.Add(endTime);
-
-                if (start < DateTime.Now || start > end)
-                {
-                    printer.PrintMessage("Ввод не корректен! Возможно не соблюдено одно из условий: \nВстречи можно планировать только на будущее. \nКонец встречи должен быть не раньше её старта!");
-                    break;
-                }
-
-                Console.WriteLine("Введите название встречи:");
-                string title = Console.ReadLine();
-
-                Console.WriteLine("Введите время напоминания в формате 'HH:mm' :");
-                if (!TimeSpan.TryParseExact(Console.ReadLine(), @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out TimeSpan reminderTime))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Meeting meeting = new Meeting(title, start, end, reminderTime);
-
+            {                
                 try
                 {
+                    Meeting? meeting = TryCreateMeetingWithConsole();
+                    if (meeting == null)
+                        throw new Exception("Не удалось назначить встречу!");
                     meetingManager.CreateMeeting(meeting);
-                    printer.PrintMessage("Встреча успешно добавлена!");
-
                 } catch(Exception ex)
                 {
-                    printer.PrintMessage($"Ошибка: {ex.Message}");
+                    Console.WriteLine($"Ошибка: {ex.Message}");
                 }
 
+                WaitForUserRead();
                 break;
             }
 
@@ -117,59 +85,29 @@ while(true)
             {
                 Console.WriteLine("Введите дату и время начала старой встречи (в формате dd.MM.yyyy HH:mm):");
                 if(!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime oldStart)) {
-                    printer.PrintMessage("Ввод не корректен!");
+                    Console.WriteLine("Ввод не корректен!");
+                    WaitForUserRead();
                     break;
                 }
-
-                Console.WriteLine("Введите дату и время окончания старой встречи (в формате dd.MM.yyyy HH:mm):");
-                if(!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime oldEnd))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Console.WriteLine("Введите дату и время начала новой встречи (в формате dd.MM.yyyy HH:mm):");
-                if (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime newStart))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Console.WriteLine("Введите дату и время окончания новой встречи (в формате dd.MM.yyyy HH:mm):");
-                if (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime newEnd))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Console.WriteLine("Введите название новой встречи:");
-                string newTitle = Console.ReadLine();
-
-                Console.WriteLine("Введите время напоминания новой встречи (в формате HH:mm):");
-                if (!TimeSpan.TryParseExact(Console.ReadLine(), @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out TimeSpan newReminderTime))
-                {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Meeting? oldMeeting = meetingManager.ReadMeetingsWithDate(oldStart.Date).FirstOrDefault(m => m.StartTime == oldStart && m.EndTime == oldEnd);
-                if (oldMeeting == null)
-                {
-                    printer.PrintMessage("Встреча не найдена");
-                    break;
-                }
-
-                Meeting newMeeting = new Meeting(newTitle, newStart, newEnd, newReminderTime);
-
+                
                 try
                 {
+                    Meeting? oldMeeting = meetingManager.ReadMeetingWithStartDate(oldStart);
+                    if(oldMeeting == null)
+                        throw new Exception("Встреча не найдена!");
+
+                    Console.WriteLine("Введите данные для изменения встречи: ");
+                    Meeting? newMeeting = TryCreateMeetingWithConsole();
+                    if (newMeeting == null)
+                        throw new Exception("Не удалось назначить встречу!");
+
                     meetingManager.UpdateMeeting(oldMeeting, newMeeting);
-                    printer.PrintMessage("Встреча успешно изменена!");
                 }
                 catch (Exception ex)
                 {
-                    printer.PrintMessage($"Ошибка: {ex.Message}");
+                    Console.WriteLine($"Ошибка: {ex.Message}");
                 }
+                WaitForUserRead();
                 break;
             }
 
@@ -178,25 +116,21 @@ while(true)
                 Console.WriteLine("Введите дату и время начала встречи в формате 'dd.mm.yyyy HH:mm' :");
                 if (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime start))
                 {
-                    printer.PrintMessage("Ввод не корректен!");
+                    Console.WriteLine("Ввод не корректен!");
                     break;
                 }
-
-                Console.WriteLine("Введите дату и время конца встречи в формате 'dd.mm.yyyy HH:mm' :");
-                if (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime end))
+                
+                try
                 {
-                    printer.PrintMessage("Ввод не корректен!");
-                    break;
-                }
-
-                Meeting? meeting = meetingManager.ReadMeetingsWithDate(start.Date).FirstOrDefault(m => m.StartTime == start && m.EndTime == end);
-                if (meeting == null)
+                    Meeting? meeting = meetingManager.ReadMeetingWithStartDate(start);
+                    if (meeting == null)
+                        throw new Exception("Встреча не найдена!");
+                    meetingManager.DeleteMeeting(meeting);
+                } catch (Exception ex)
                 {
-                    printer.PrintMessage("Встреча не найдена");
-                    break;
+                    Console.WriteLine($"Ошибка: {ex.Message}");
                 }
-                meetingManager.DeleteMeeting(meeting);
-                printer.PrintMessage("Встреча успешно удалена");
+                WaitForUserRead();
                 break;
             }
 
@@ -205,32 +139,95 @@ while(true)
                 Console.WriteLine("Введите дату в формате 'dd.MM.yyyy' :");
                 if (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime date))
                 {
-                    printer.PrintMessage("Ввод не корректен!");
+                    Console.WriteLine("Ввод не корректен!");
+                    WaitForUserRead();
                     break;
                 }
 
                 Console.WriteLine("Введите имя файла");
                 string fileName = Console.ReadLine();
-                if (string.IsNullOrEmpty(fileName))
-                    fileName = "exported_meetings.txt";
 
-                if(!await meetingManager.ExportMettingWithDate(date, fileName))
+                try
                 {
-                    printer.PrintMessage($"Ошибка при записи! Проверьте есть ли у Вас встречи на выбранный день или не существует ли файл с таким же названием.");
-                    break;
+                    await meetingManager.ExportMettingWithDate(date, fileName);
+                } catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка: {ex.Message}");
                 }
-                printer.PrintMessage($"Список встреч успешно записан в файл {fileName}");
+                WaitForUserRead();
                 break;
             }
 
         case Command.Exit:
             {
+                meetingManager.OnLogging -= OnLogging;
+                reminder.OnReminderLogging -= OnReminderLogging;
                 return;
             }
         default:
             {
-                printer.PrintMessage("Команда отсутствует :(");
+                Console.WriteLine("Такая команда отсутствует :( \nПопробуйте ввести одну из доступных (1-6)");
+                WaitForUserRead();
                 break;
             }
     }
+}
+
+Meeting? TryCreateMeetingWithConsole()
+{
+    try
+    {
+        Console.WriteLine("Введите дату встречи в формате 'dd.mm.yyyy' :");
+        DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime date);
+        if(date < DateTime.Now.Date)
+            throw new Exception("Ввод не корректен! Встречи можно планировать только на будущее.");
+
+        Console.WriteLine("Введите время начала встречи в формате 'HH:mm' :");
+        TimeSpan.TryParseExact(Console.ReadLine(), @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out TimeSpan startTime);
+
+        Console.WriteLine("Введите дату и время конца встречи в формате 'HH:mm' :");
+        TimeSpan.TryParseExact(Console.ReadLine(), @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out TimeSpan endTime);
+
+        var start = date.Add(startTime);
+        var end = date.Add(endTime);
+
+        if (start < DateTime.Now || start > end)
+            throw new Exception("Ввод не корректен! Возможно не соблюдено одно из условий: \nВстречи можно планировать только на будущее. \nКонец встречи должен быть не раньше её старта!");
+
+        Console.WriteLine("Введите название встречи:");
+        string title = Console.ReadLine();
+
+        Console.WriteLine("Введите время до начала встречи для уведомления в формате 'HH:mm' :");
+        TimeSpan.TryParseExact(Console.ReadLine(), @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out TimeSpan reminderTime);
+
+        if (DateTime.Now > start.Subtract(reminderTime))
+            throw new Exception("Уведомить можно только в будущем!");
+
+        return new Meeting(title, start, end, reminderTime);
+    } catch(Exception ex)
+    {
+        Console.WriteLine($"Ошбика: {ex.Message}");
+        return null;
+    }
+}
+
+void OnLogging(string message, ConsoleColor consoleColor)
+{
+    Console.ForegroundColor = consoleColor;
+    Console.WriteLine(message);
+    Console.ResetColor();
+}
+
+void OnReminderLogging(string message, ConsoleColor consoleColor)
+{
+    Console.ForegroundColor = consoleColor;
+    Console.Beep();
+    Console.WriteLine(message);
+    Console.ResetColor();
+}
+
+void WaitForUserRead()
+{
+    Console.WriteLine("Нажмите любую кнопку, чтобы продолжить");
+    Console.ReadKey();
 }

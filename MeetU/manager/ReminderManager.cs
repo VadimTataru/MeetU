@@ -33,11 +33,11 @@ namespace MeetU.manager
                     TimeSpan timeToMeeting = meeting.StartTime - DateTime.Now;
                     if(!notifiedMeetings.Contains(meeting) && timeToMeeting <= meeting.ReminderTime)
                     {
-                        OnReminderLogging?.Invoke($"Уведомление: Встреча \"{meeting.Title}\" скоро начнётся!", ConsoleColor.Green);
+                        OnReminderLogging?.Invoke($"Уведомление: Встреча \"{meeting.Title}\" начнётся в {meeting.StartTime.TimeOfDay}", ConsoleColor.Green);
                         notifiedMeetings.Add(meeting);
                     }
                 }
-                Thread.Sleep(30000);
+                Thread.Sleep(15000);
             }
         }
     }

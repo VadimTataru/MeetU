@@ -220,8 +220,8 @@ void OnLogging(string message, ConsoleColor consoleColor)
 
 void OnReminderLogging(string message, ConsoleColor consoleColor)
 {
-    Console.ForegroundColor = consoleColor;
     Console.Beep();
+    Console.ForegroundColor = consoleColor;
     Console.WriteLine(message);
     Console.ResetColor();
 }

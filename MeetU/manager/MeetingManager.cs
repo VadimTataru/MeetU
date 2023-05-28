@@ -50,7 +50,7 @@ namespace MeetU.manager
         /// <returns></returns>
         public List<Meeting>? ReadMeetingsWithDate(DateTime date)
         {
-            var meetings = meetingList.Where(m => m.StartTime.Date == date.Date).ToList();
+            var meetings = meetingList.Where(m => m.StartTime.Date == date.Date).OrderBy(m => m.StartTime).ToList();
             if (!meetings.Any())
                 return null;
             return meetings;
@@ -95,7 +95,7 @@ namespace MeetU.manager
         }
 
         /// <summary>
-        /// Экспортировать список встреч в файл
+        /// Экспорт
         /// </summary>
         /// <param name="date"></param>
         /// <param name="fileName"></param>
